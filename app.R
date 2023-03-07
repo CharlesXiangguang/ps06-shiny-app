@@ -1,0 +1,109 @@
+#
+# Charles 
+# Xiangguang Zhou
+# This is a Shiny web application.
+#
+library(shiny)
+library(tidyverse)
+
+troposphere <- read_delim("UAH-lower-troposphere-long.csv")
+troposphere$year_month <- paste(troposphere$year, sprintf("%02d", troposphere$month), sep = "-")
+
+# Define UI
+ui <- fluidPage(
+  titlePanel("Temperature change"),
+  navbarPage("",
+             tabPanel("About",
+                      h2("Introduction"),
+                      p("Downloaded from http://vortex.nsstc.uah.edu/data/msu/v6.0/tlt/uahncdc_lt_6.0.txt"),
+                      br(),
+                      strong("The dataset contains ", nrow(troposphere), " number of rows, and ", ncol(troposphere), " number of columns in this dataset. Some of the aforementioned columns are:"),
+                      tags$ul(
+                        tags$li("globe global average temperature"),
+                        tags$li("globe_land average over global land area"),
+                        tags$li("globe_ocean average over global ocean"),
+                        tags$li("nh, nh_land, nh_ocean: northern hemisphere"),
+                        tags$li("trpcs, trpcs_land, trpcs_ocean: tropics (30S .. 30N lat)"),
+                        tags$li("noext, noext_land, noext_ocean: northern extent (30N..60N latitude)"),
+                        tags$li("nopol, nopol_land, nopol_ocean: northern polar areas (60N .. 90N lat)"),
+                        tags$li("usa48: lower 48"),
+                        tags$li("usa49: including Alaska"),
+                        tags$li("aust: Australia"),
+                      )
+             ),
+             tabPanel("Plots",
+                      sidebarLayout(
+                        sidebarPanel(
+                          p("You can analyze the global temperature for different regions. Select the regions you are interested in. You see a monthly scatterplot"),
+                          radioButtons("Palette",
+                                       "choose a palette",
+                                       choices = c("black", "blue", "green", "orange", "brown")),
+                          checkboxGroupInput("region",
+                                             "Select the region(s) to display",
+                                             choices = unique(troposphere$region)),
+                        ),
+                        mainPanel(
+                          plotOutput("plot"),
+                          br(),
+                          textOutput("plotText")
+                        )
+                      )
+             ),
+             tabPanel("Tables",
+                      sidebarLayout(
+                        sidebarPanel(
+                          p("This panel displays average temperature over different time periods by taking average of all places: months , years"),
+                          br(),
+                          radioButtons("Time",
+                                       "Average over:",
+                                       choices = c("year" = "year", "month" = "month")),
+                          br(),
+                        ),
+                        mainPanel(
+                          textOutput("temp"),
+                          dataTableOutput("table")
+                        )
+                      )
+             )
+  )
+)
+
+
+server <- function(input, output) {
+  sub_set <- reactive({
+    if (input$Time == "year") {
+      new_data <- troposphere %>% 
+        group_by(year)%>% 
+        summarize(new_temp = mean(temp))
+    } else {
+      new_data <- troposphere %>% 
+        group_by(year, month)%>% 
+        summarize(new_temp = mean(temp))
+    }
+  })
+  output$plot <- renderPlot({
+    troposphere %>%
+      filter(region %in% input$region) %>%
+      ggplot(aes(x = year_month, y= temp)) +
+      geom_point(col = input$Palette) +
+      labs(x = "Temperature: deviation from 1991 - 2020 baseline, deg C", y = "Year")
+  })
+  output$plotText <- renderText({
+    paste("Time period 1978 - 2023 . In total", nrow(!is.na(troposphere %>%
+                                                             filter(region %in% input$region))),"non-missing observations")
+  })
+  output$table <- renderDataTable({
+    sub_set()
+  })
+  output$temp <- renderText({
+    if (input$Time == "year") {
+      paste("Temperature data for year")
+    } else {
+      paste("Temperature data for month")
+    }
+  })
+}
+
+
+shinyApp(ui = ui, server = server)
+
