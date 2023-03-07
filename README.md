@@ -13,3 +13,9 @@ It draws a plot of temperature for different regions of the word. Users can sele
 
 Tables:
 It gives a table that displays average temperature over different time periods by taking average of all places. Users can choose time span between months or years. 
+
+
+
+
+
+https://charlesxz.shinyapps.io/ps06-shiny-app/
